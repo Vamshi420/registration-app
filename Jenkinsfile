@@ -29,9 +29,8 @@ pipeline {
 
     stage('Unit Tests') {
       steps {
-        // Run tests but don’t fail pipeline if no reports exist
         sh 'mvn test || true'
-        junit 'target/surefire-reports/*.xml', allowEmptyResults: true
+        junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
       }
     }
 
