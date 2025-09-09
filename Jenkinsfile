@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     tools {
-        maven 'M3'   // Make sure Maven is configured in Jenkins Global Tools
-        jdk 'JDK17'      // Make sure JDK is configured in Jenkins Global Tools
+        maven 'MAVEN_HOME'   // Configure this in Jenkins Global Tool Configuration
+        jdk 'JAVA_HOME'      // Configure this in Jenkins Global Tool Configuration
     }
 
     environment {
-        // Replace with your SonarQube server name from Jenkins config
+        // 👇 Replace with the exact SonarQube server name you set in Manage Jenkins → Configure System → SonarQube servers
         SONARQUBE_ENV = 'sonarqube-server'
     }
 
@@ -63,7 +63,7 @@ pipeline {
                     sh '''
                         curl -u $TOMCAT_USER:$TOMCAT_PASS \
                         --upload-file webapp/target/webapp.war \
-                        "http://13.232.15.15:8080/manager/text/deploy?path=/registration-app&update=true"
+                        "http://13.235.254.177:8080/manager/text/deploy?path=/registration-app&update=true"
                     '''
                 }
             }
