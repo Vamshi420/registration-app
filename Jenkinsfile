@@ -8,7 +8,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/Vamshi420/registration-app.git'
+        git branch: 'main', url: 'https://github.com/Vamshi420/registration-app.git'
       }
     }
 
