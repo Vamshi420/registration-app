@@ -1,74 +1,84 @@
 pipeline {
-  agent any
+    agent any
 
-  tools {
-    maven 'M3'   // Jenkins Global Tool config -> Name: M3
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'main', url: 'https://github.com/Vamshi420/registration-app.git'
-      }
+    tools {
+        maven 'MAVEN_HOME'   // Make sure Maven is configured in Jenkins Global Tools
+        jdk 'JAVA_HOME'      // Make sure JDK is configured in Jenkins Global Tools
     }
 
-    stage('Build') {
-      steps {
-        sh 'mvn -B -DskipTests clean package'
-      }
-      post {
+    environment {
+        // Replace with your SonarQube server name from Jenkins config
+        SONARQUBE_ENV = 'sonarqube-server'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/Vamshi420/registration-app.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'webapp/target/*.war', fingerprint: true
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Deploy to Tomcat') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'tomcat-credentials', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
+                    sh '''
+                        curl -u $TOMCAT_USER:$TOMCAT_PASS \
+                        --upload-file webapp/target/webapp.war \
+                        "http://13.232.15.15:8080/manager/text/deploy?path=/registration-app&update=true"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
         always {
-          archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+            cleanWs()
         }
-      }
-    }
-
-    stage('Unit Tests') {
-      steps {
-        sh 'mvn test || true'
-        junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
-      }
-    }
-
-    stage('SonarQube Analysis') {
-      steps {
-        withSonarQubeEnv('sonarqube-server') {  // replace with your configured server name
-          withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-            sh "mvn -B sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
-          }
+        failure {
+            echo 'Pipeline failed.'
         }
-      }
-    }
-
-    stage('Quality Gate') {
-      steps {
-        timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
+        success {
+            echo 'Pipeline succeeded.'
         }
-      }
     }
-
-    stage('Deploy to Tomcat') {
-      steps {
-        script {
-          def war = sh(script: "ls target/*.war | head -n1", returnStdout: true).trim()
-          withCredentials([usernamePassword(credentialsId: 'TOMCAT_CRED', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PSW')]) {
-            sh "curl --fail --upload-file ${war} \"http://${TOMCAT_USER}:${TOMCAT_PSW}@13.235.254.177:8080/manager/text/deploy?path=/registration-app&update=true\""
-          }
-        }
-      }
-    }
-  }
-
-  post {
-    success {
-      echo 'Pipeline succeeded.'
-    }
-    failure {
-      echo 'Pipeline failed.'
-    }
-    always {
-      cleanWs()
-    }
-  }
 }
