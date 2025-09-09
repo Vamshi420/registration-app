@@ -1,12 +1,8 @@
 pipeline {
   agent any
 
-  environment {
-    MAVEN_OPTS = '-Xmx1024m'
-  }
-
   tools {
-    maven 'M3'   // Ensure Maven is configured in Jenkins as 'M3'
+    maven 'M3'   // Jenkins Global Tool config -> Name: M3
   }
 
   stages {
@@ -35,12 +31,11 @@ pipeline {
     }
 
     stage('SonarQube Analysis') {
-      environment {
-        SONAR_HOST_URL = 'http://3.109.4.149:9000'
-      }
       steps {
-        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-          sh "mvn -B sonar:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.login=${SONAR_TOKEN}"
+        withSonarQubeEnv('sonarqube-server') {  // replace with your configured server name
+          withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+            sh "mvn -B sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
+          }
         }
       }
     }
@@ -48,7 +43,7 @@ pipeline {
     stage('Quality Gate') {
       steps {
         timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate(abortPipeline: true)
+          waitForQualityGate abortPipeline: true
         }
       }
     }
@@ -73,7 +68,7 @@ pipeline {
       echo 'Pipeline failed.'
     }
     always {
-      archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: true
+      cleanWs()
     }
   }
 }
