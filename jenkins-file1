@@ -44,5 +44,32 @@ pipeline {
                 archiveArtifacts artifacts: 'webapp/target/*.war', fingerprint: true
             }
         }
+
+        stage('Deploy to Tomcat') {
+            steps {
+                script {
+                    // Auto-detect WAR file name
+                    def warFile = sh(
+                        script: "ls webapp/target/*.war | head -1",
+                        returnStdout: true
+                    ).trim()
+
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'tomcat',
+                            usernameVariable: 'USERNAME',
+                            passwordVariable: 'PASSWORD'
+                        )
+                    ]) {
+
+                        sh """
+                        curl -v -u $USERNAME:$PASSWORD \
+                        --upload-file ${warFile} \
+                        "http://13.201.85.142:8080/manager/text/deploy?path=/registration-app&update=true"
+                        """
+                    }
+                }
+            }
+        }
     }
 }
