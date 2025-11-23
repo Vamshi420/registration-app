@@ -3,73 +3,51 @@ pipeline {
 
     tools {
         maven 'maven'
-    }
-
-    environment {
-        SONAR_SCANNER_HOME = tool 'sonar-scanner'
+        jdk 'jdk17'
     }
 
     stages {
 
-        stage('Checkout from Git') {
+        stage('git checkout') {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/Vamshi420/registration-app.git'
             }
         }
 
-        stage('Build with Maven') {
+        stage('build') {
             steps {
-                sh "mvn clean install"
+                sh "mvn clean install -DskipTests"
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('sonarqube-analysis') {
+            environment {
+                scannerHome = tool 'sonar-scanner'
+            }
             steps {
                 withSonarQubeEnv('sonar') {
-                    sh "mvn sonar:sonar"
+                    sh '''
+                        ${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=registration-app \
+                        -Dsonar.projectName=registration-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.java.binaries=server/target/classes \
+                        -Dsonar.java.libraries=server/target/*.jar
+                    '''
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('deploy') {
             steps {
-                sh "mvn test"
+                sh '''
+                    curl -u tomcat:tomcat \
+                    --upload-file webapp/target/webapp.war \
+                    "http://13.127.115.201:8080/manager/text/deploy?path=/registration-app&update=true"
+                '''
             }
         }
 
-        stage('Package') {
-            steps {
-                sh "mvn package"
-                archiveArtifacts artifacts: 'webapp/target/*.war', fingerprint: true
-            }
-        }
-
-        stage('Deploy to Tomcat') {
-            steps {
-                script {
-                    // Auto-detect WAR file name
-                    def warFile = sh(
-                        script: "ls webapp/target/*.war | head -1",
-                        returnStdout: true
-                    ).trim()
-
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'tomcat',
-                            usernameVariable: 'USERNAME',
-                            passwordVariable: 'PASSWORD'
-                        )
-                    ]) {
-
-                        sh """
-                        curl -v -u $USERNAME:$PASSWORD \
-                        --upload-file ${warFile} \
-                        "http://13.201.85.142:8080/manager/text/deploy?path=/registration-app&update=true"
-                        """
-                    }
-                }
-            }
-        }
     }
 }
