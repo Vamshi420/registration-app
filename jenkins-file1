@@ -6,48 +6,47 @@ pipeline {
         jdk 'jdk17'
     }
 
+    environment {
+        SONARQUBE_TOKEN = credentials('sonarqube-token')
+    }
+
     stages {
 
-        stage('git checkout') {
+        stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Vamshi420/registration-app.git'
+                git branch: 'main', url: 'https://github.com/Vamshi420/registration-app.git'
             }
         }
 
-        stage('build') {
+        stage('Build with Maven') {
             steps {
-                sh "mvn clean install -DskipTests"
+                sh 'mvn clean install -DskipTests'
             }
         }
 
-        stage('sonarqube-analysis') {
-            environment {
-                scannerHome = tool 'sonar-scanner'
-            }
+        stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonar') {
-                    sh '''
-                        ${scannerHome}/bin/sonar-scanner \
+                withSonarQubeEnv('SonarQube-Server') {
+                    sh """
+                        mvn sonar:sonar \
                         -Dsonar.projectKey=registration-app \
-                        -Dsonar.projectName=registration-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.java.binaries=server/target/classes \
-                        -Dsonar.java.libraries=server/target/*.jar
-                    '''
+                        -Dsonar.host.url=http://3.108.185.10:9000 \
+                        -Dsonar.token=$SONARQUBE_TOKEN
+                    """
                 }
             }
         }
 
-        stage('deploy') {
+        stage('Deploy to Tomcat') {
             steps {
-                sh '''
-                    curl -u tomcat:tomcat \
-                    --upload-file webapp/target/webapp.war \
-                    "http://13.127.115.201:8080/manager/text/deploy?path=/registration-app&update=true"
-                '''
+                deploy adapters: [
+                    tomcat9(
+                        credentialsId: 'tomcat-cred', // <- Use the credentials ID created above
+                        path: '',
+                        url: 'http://13.235.19.45:8080'
+                    )
+                ], contextPath: 'registration-app', war: 'webapp/target/webapp.war'
             }
         }
-
     }
 }
