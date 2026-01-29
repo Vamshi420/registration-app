@@ -15,7 +15,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'master',
+                git branch: 'main',
                     url: 'https://github.com/Vamshi420/registration-app.git'
             }
         }
@@ -29,8 +29,9 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 sh '''
+                ls -l webapp/target
                 curl -v -u tomcat:tomcat \
-                -T target/*.war \
+                -T webapp/target/*.war \
                 "$TOMCAT_URL/manager/text/deploy?path=/$APP_NAME&update=true"
                 '''
             }
